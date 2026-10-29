@@ -1,0 +1,10 @@
+{
+  "ok": false,
+  "generado": "2026-10-28T22:44:53-06:00",
+  "hoy": "2026-10-28",
+  "modo": "manana",
+  "asunto": "⚠ Canavida · Falló la sincronización con Lodgify",
+  "enviar": true,
+  "error": "Falta LODGIFY_API_KEY. Créela en Lodgify → Configuración → API pública y guárdela como Secret del repositorio.",
+  "para": "admicanavida@gmail.com"
+}
