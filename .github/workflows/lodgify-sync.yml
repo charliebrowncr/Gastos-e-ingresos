@@ -1,0 +1,68 @@
+name: Sincronizar reservas Lodgify
+
+on:
+  schedule:
+    # Costa Rica es UTC-6 todo el año (sin horario de verano).
+    - cron: "0 14 * * *"   # 8:00 a.m. Costa Rica → actualiza Excel y deja listo el reporte del día
+    - cron: "0 2 * * *"    # 8:00 p.m. Costa Rica → actualiza Excel; reporte solo si hubo cambios
+  workflow_dispatch:
+    inputs:
+      modo:
+        description: "manana (envía reporte siempre) o tarde (solo si hay cambios)"
+        default: manana
+        type: choice
+        options: [manana, tarde]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: lodgify-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}   # siempre la última versión del Excel
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: automatizacion/requirements.txt
+
+      - run: pip install -r automatizacion/requirements.txt
+
+      - name: Sincronizar Lodgify → Excel y generar reporte
+        env:
+          LODGIFY_API_KEY: ${{ secrets.LODGIFY_API_KEY }}
+          REPORTE_PARA: admicanavida@gmail.com
+        run: |
+          MODO="${{ inputs.modo }}"
+          if [ -z "$MODO" ]; then
+            if [ "${{ github.event.schedule }}" = "0 14 * * *" ]; then MODO=manana; else MODO=tarde; fi
+          fi
+          # El correo lo envía Claude con el conector de Gmail (sin contraseña) a partir de reportes/.
+          python automatizacion/lodgify_sync.py --modo "$MODO" --sin-correo --reporte-dir reportes
+
+      - name: Guardar el Excel y el reporte en el repositorio
+        if: always()
+        run: |
+          git config user.name "canavida-bot"
+          git config user.email "canavida-bot@users.noreply.github.com"
+          git add Canavida_Gastos_Ingresos.xlsx reportes/
+          if git diff --cached --quiet; then echo "Sin cambios"; exit 0; fi
+          git commit -m "Sincronización Lodgify $(TZ=America/Costa_Rica date '+%Y-%m-%d %H:%M')"
+          for i in 1 2 3 4; do git pull --rebase -X theirs && git push && exit 0; git rebase --abort 2>/dev/null; sleep $((2**i)); done
+          exit 1
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: excel-${{ github.run_id }}
+          path: Canavida_Gastos_Ingresos.xlsx
+          retention-days: 30
