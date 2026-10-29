@@ -677,6 +677,9 @@ def ejecutar(args) -> int:
     modo = args.modo or ("manana" if ahora.hour < 12 else "tarde")
     excel = Path(args.excel) if args.excel else cfg.EXCEL_PATH
     log.info("Sincronización %s · hoy=%s · libro=%s", modo, hoy, excel)
+    for nombre, valor in (("LODGIFY_API_KEY", cfg.LODGIFY_API_KEY), ("GMAIL_USER", cfg.GMAIL_USER),
+                          ("GMAIL_APP_PASSWORD", cfg.GMAIL_APP_PASSWORD)):
+        log.info("Secret %s: %s", nombre, "configurado" if valor else "FALTA")
 
     if args.csv:
         reservas = [r for r in leer_csv(Path(args.csv)) if r.llegada and r.llegada >= cfg.SYNC_DESDE]
