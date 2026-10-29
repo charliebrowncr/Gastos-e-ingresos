@@ -5,6 +5,10 @@ on:
     # Costa Rica es UTC-6 todo el año (sin horario de verano).
     - cron: "0 14 * * *"   # 8:00 a.m. Costa Rica → actualiza Excel y envía el reporte del día
     - cron: "0 2 * * *"    # 8:00 p.m. Costa Rica → actualiza Excel; correo solo si hubo cambios
+  # Prueba: corre al subir cambios a la rama de desarrollo (quitar al unir a main).
+  push:
+    branches: [claude/determined-dijkstra-fevup1]
+    paths: [".github/workflows/lodgify-sync.yml", "automatizacion/**"]
   workflow_dispatch:
     inputs:
       modo:
@@ -43,6 +47,7 @@ jobs:
           REPORTE_PARA: admicanavida@gmail.com
         run: |
           MODO="${{ inputs.modo }}"
+          if [ "${{ github.event_name }}" = "push" ]; then MODO=manana; fi
           if [ -z "$MODO" ]; then
             if [ "${{ github.event.schedule }}" = "0 14 * * *" ]; then MODO=manana; else MODO=tarde; fi
           fi
