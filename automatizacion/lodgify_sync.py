@@ -700,17 +700,33 @@ def ejecutar(args) -> int:
              len(ingresos["actualizadas"]), len(reparaciones))
 
     asunto, cuerpo, hay_cambios = construir_reporte(reservas, ingresos, cambios, reparaciones, hoy, [])
+    if modo == "tarde":
+        asunto = asunto.replace("Entradas del", "Actualización de la tarde ·")
+    enviar = modo == "manana" or hay_cambios
     if args.reporte_html:
         Path(args.reporte_html).write_text(cuerpo, encoding="utf-8")
+    if args.reporte_dir:
+        guardar_estado(args.reporte_dir, ok=True, modo=modo, hoy=hoy, asunto=asunto,
+                       enviar=enviar, cuerpo=cuerpo)
     if args.sin_correo:
         log.info("Correo omitido (--sin-correo). Asunto: %s", asunto)
-    elif modo == "manana" or hay_cambios:
-        if modo == "tarde":
-            asunto = asunto.replace("Entradas del", "Actualización de la tarde ·")
+    elif enviar:
         enviar_correo(asunto, cuerpo, salida)
     else:
         log.info("Corrida de la tarde sin cambios: no se envía correo")
     return 0
+
+
+def guardar_estado(carpeta, *, ok, modo, hoy, asunto, enviar, cuerpo="", error=""):
+    """Deja el reporte listo para que otro proceso lo envíe (p. ej. por el conector de Gmail)."""
+    carpeta = Path(carpeta)
+    carpeta.mkdir(parents=True, exist_ok=True)
+    (carpeta / "reporte.html").write_text(cuerpo, encoding="utf-8")
+    ahora = datetime.now(ZoneInfo(cfg.ZONA_HORARIA))
+    (carpeta / "estado.json").write_text(json.dumps({
+        "ok": ok, "generado": ahora.isoformat(timespec="seconds"), "hoy": hoy.isoformat(),
+        "modo": modo, "asunto": asunto, "enviar": enviar, "error": error,
+        "para": cfg.REPORTE_PARA}, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def main(argv=None) -> int:
@@ -722,12 +738,20 @@ def main(argv=None) -> int:
     p.add_argument("--modo", choices=["manana", "tarde"], help="Por defecto según la hora")
     p.add_argument("--sin-correo", action="store_true", help="No enviar el correo")
     p.add_argument("--reporte-html", help="Guardar también el reporte en este archivo HTML")
+    p.add_argument("--reporte-dir", help="Guardar reporte.html y estado.json en esta carpeta")
     args = p.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     try:
         return ejecutar(args)
     except Exception as e:  # noqa: BLE001 - se informa por correo y se relanza
         log.exception("La sincronización falló")
+        if args.reporte_dir:
+            hoy = datetime.now(ZoneInfo(cfg.ZONA_HORARIA)).date()
+            guardar_estado(args.reporte_dir, ok=False, modo=args.modo or "", hoy=hoy,
+                           asunto="⚠ Canavida · Falló la sincronización con Lodgify", enviar=True,
+                           cuerpo=f"<p>La actualización automática del Excel falló:</p>"
+                                  f"<pre>{html.escape(str(e))}</pre><p>El Excel no se modificó.</p>",
+                           error=str(e))
         if not args.sin_correo and cfg.GMAIL_USER and cfg.GMAIL_APP_PASSWORD:
             try:
                 enviar_correo("⚠ Canavida · Falló la sincronización con Lodgify",

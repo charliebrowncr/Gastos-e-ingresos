@@ -42,8 +42,6 @@ jobs:
       - name: Sincronizar Lodgify → Excel y enviar reporte
         env:
           LODGIFY_API_KEY: ${{ secrets.LODGIFY_API_KEY }}
-          GMAIL_USER: ${{ secrets.GMAIL_USER }}
-          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           REPORTE_PARA: admicanavida@gmail.com
         run: |
           MODO="${{ inputs.modo }}"
@@ -51,13 +49,15 @@ jobs:
           if [ -z "$MODO" ]; then
             if [ "${{ github.event.schedule }}" = "0 14 * * *" ]; then MODO=manana; else MODO=tarde; fi
           fi
-          python automatizacion/lodgify_sync.py --modo "$MODO"
+          # El correo lo envía Claude con el conector de Gmail (sin contraseña) a partir de reportes/.
+          python automatizacion/lodgify_sync.py --modo "$MODO" --sin-correo --reporte-dir reportes
 
-      - name: Guardar el Excel actualizado en el repositorio
+      - name: Guardar el Excel y el reporte en el repositorio
+        if: always()
         run: |
           git config user.name "canavida-bot"
           git config user.email "canavida-bot@users.noreply.github.com"
-          git add Canavida_Gastos_Ingresos.xlsx
+          git add Canavida_Gastos_Ingresos.xlsx reportes/
           if git diff --cached --quiet; then echo "Sin cambios"; exit 0; fi
           git commit -m "Sincronización Lodgify $(TZ=America/Costa_Rica date '+%Y-%m-%d %H:%M')"
           for i in 1 2 3 4; do git pull --rebase && git push && exit 0; sleep $((2**i)); done
