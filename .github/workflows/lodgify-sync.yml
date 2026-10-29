@@ -40,14 +40,19 @@ jobs:
       - name: Sincronizar Lodgify → Excel y generar reporte
         env:
           LODGIFY_API_KEY: ${{ secrets.LODGIFY_API_KEY }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           REPORTE_PARA: admicanavida@gmail.com
         run: |
           MODO="${{ inputs.modo }}"
           if [ -z "$MODO" ]; then
             if [ "${{ github.event.schedule }}" = "0 14 * * *" ]; then MODO=manana; else MODO=tarde; fi
           fi
-          # El correo lo envía Claude con el conector de Gmail (sin contraseña) a partir de reportes/.
-          python automatizacion/lodgify_sync.py --modo "$MODO" --sin-correo --reporte-dir reportes
+          # Con GMAIL_USER y GMAIL_APP_PASSWORD el correo sale desde aquí con el Excel adjunto;
+          # sin ellos solo se deja el reporte en reportes/.
+          CORREO="--sin-correo"
+          if [ -n "$GMAIL_USER" ] && [ -n "$GMAIL_APP_PASSWORD" ]; then CORREO=""; fi
+          python automatizacion/lodgify_sync.py --modo "$MODO" $CORREO --reporte-dir reportes
 
       - name: Guardar el Excel y el reporte en el repositorio
         if: always()

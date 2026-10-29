@@ -24,9 +24,14 @@ Dos veces al día, **8:00 a.m. y 8:00 p.m. (hora de Costa Rica)**:
 |---|---|
 | `LODGIFY_API_KEY` | Lodgify → Configuración → **API pública** (la API no acepta usuario y contraseña). |
 
-No hace falta contraseña de Gmail: el correo lo envía Claude con el conector de Gmail.
-(Opcional: con los secrets `GMAIL_USER` y `GMAIL_APP_PASSWORD` el script puede enviar el correo por SMTP
-con el Excel adjunto, quitando `--sin-correo` del workflow.)
+Para que GitHub envíe el correo con el Excel adjunto, agregue también:
+
+| Secret | Valor |
+|---|---|
+| `GMAIL_USER` | `admicanavida@gmail.com` |
+| `GMAIL_APP_PASSWORD` | Contraseña de aplicación de Google (myaccount.google.com/apppasswords), 16 letras sin espacios. |
+
+Si estos dos no existen, el workflow solo deja el reporte en `reportes/` y no envía correo.
 
 Ejecución manual: pestaña **Actions → Sincronizar reservas Lodgify → Run workflow**.
 
