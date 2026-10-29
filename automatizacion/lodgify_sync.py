@@ -602,9 +602,20 @@ def construir_reporte(reservas, ingresos, cambios, reparaciones, hoy, avisos_ext
                + "</tr></table>")
 
     avisos = list(avisos_extra)
+    fuera = [r for r in reservas if any(a.startswith("Llegada fuera") for a in r.avisos)]
+    sin_imp = [r for r in reservas if any(a.startswith("Monto de Expedia") for a in r.avisos)
+               and r.confirmada and r.llegada <= hoy]
+    if fuera:
+        avisos.append(f"{len(fuera)} reserva(s) llegan después del periodo del libro (31/12/2026): "
+                      "quedan en la hoja 'Reservas Lodgify' y no se anotan en Ingresos Diarios.")
+    if sin_imp:
+        avisos.append(f"{len(sin_imp)} reserva(s) de Expedia ya llegadas: Lodgify no desglosa el "
+                      "impuesto, el monto puede incluirlo. Revise: "
+                      + ", ".join(f"{r.huesped} ${r.monto:,.2f}" for r in sin_imp[:10]))
     for r in reservas:
         for a in r.avisos:
-            avisos.append(f"{r.huesped} ({r.id}): {a}")
+            if not a.startswith(("Llegada fuera", "Monto de Expedia")):
+                avisos.append(f"{r.huesped} ({r.id}): {a}")
     for r in ingresos["canceladas"]:
         avisos.append(f"{r.huesped} ({r.villa}, {r.llegada:%d/%m}) está CANCELADA pero ya figura en "
                       f"Ingresos Diarios (fila {ingresos['fila_de'].get(r.id)}). Revise o elimine esa fila.")
