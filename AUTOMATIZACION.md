@@ -1,35 +1,34 @@
 # Automatización Lodgify → Excel → Correo
 
-Dos veces al día (**8:00 a.m. y 8:00 p.m., hora de Costa Rica**) GitHub Actions:
+Dos veces al día, **8:00 a.m. y 8:00 p.m. (hora de Costa Rica)**:
 
-1. Descarga las reservas de Lodgify.
-2. Actualiza `Canavida_Gastos_Ingresos.xlsx`:
-   - Hoja **Reservas Lodgify** (nueva): todas las reservas desde el 25/10/2026, también las futuras,
-     con estado, villa, huésped, llegada/salida, monto, y si ya está en Ingresos Diarios.
-   - Hoja **Ingresos Diarios**: anota cada reserva confirmada **el día de su llegada**, en orden de fecha,
-     con el mismo formato que las filas escritas a mano (Fecha = llegada, Categoría = Hospedaje,
-     Método = Tarjeta, Monto = total de Lodgify; en Expedia sin impuesto). La columna J lleva
-     `Lodgify #<id>` para no duplicar nunca. Si una reserva ya estaba anotada a mano, se vincula
-     (`Vinculada Lodgify #<id>`) en vez de duplicarla.
-   - Cancelaciones: no se borran filas; se marcan `⚠ CANCELADA en Lodgify – revisar` y salen en el correo.
-3. Guarda el Excel en este repositorio (historial completo de versiones) y lo envía adjunto.
-4. Correo a **admicanavida@gmail.com**:
-   - 8:00 a.m.: siempre. Entradas y salidas del día, entradas de mañana, villas ocupadas,
-     nuevas reservas, cancelaciones, cambios y avisos.
-   - 8:00 p.m.: solo si hubo novedades.
-   - Si algo falla, llega un correo "⚠ Falló la sincronización" y el Excel no se toca.
+1. **GitHub Actions** (`.github/workflows/lodgify-sync.yml`) descarga las reservas de Lodgify y actualiza
+   `Canavida_Gastos_Ingresos.xlsx`:
+   - Hoja **Reservas Lodgify**: todas las reservas desde el 25/10/2026, también las futuras, con su estado.
+   - Hoja **Ingresos Diarios**: cada reserva confirmada se anota **el día de su llegada**, en orden de fecha,
+     con el formato de las filas escritas a mano (Fecha = llegada, Categoría = Hospedaje, Método = Tarjeta,
+     Monto = total de Lodgify). La columna J lleva `Lodgify #<id>` para no duplicar nunca; las filas que ya
+     estaban a mano se marcan `Vinculada Lodgify #<id>`.
+   - Cancelaciones: no se borran filas; se marcan `⚠ CANCELADA en Lodgify – revisar` y salen en el reporte.
+   - Guarda el Excel, `reportes/reporte.html` y `reportes/estado.json` en el repositorio.
+2. **Claude** (tarea programada a las 8:25 a.m. y 8:25 p.m., con el conector de Gmail) lee
+   `reportes/estado.json` y envía el reporte desde **admicanavida@gmail.com** a esa misma dirección, con el
+   enlace al Excel. En la tarde solo envía si hubo novedades. Si la sincronización falló o no corrió,
+   envía un aviso.
 
-## Configuración (una sola vez)
+## Configuración
 
-En GitHub → *Settings → Secrets and variables → Actions → New repository secret*:
+Único secreto necesario, en GitHub → *Settings → Secrets and variables → Actions → Repository secrets*:
 
 | Secret | Valor |
 |---|---|
-| `LODGIFY_API_KEY` | Lodgify → Configuración → **API pública** → copiar la clave. (La API de Lodgify no acepta usuario y contraseña, solo esta clave.) |
-| `GMAIL_USER` | Cuenta Gmail que envía, p. ej. `admicanavida@gmail.com` |
-| `GMAIL_APP_PASSWORD` | Contraseña de aplicación de Google (myaccount.google.com → Seguridad → Verificación en 2 pasos → Contraseñas de aplicaciones). No es la contraseña normal. |
+| `LODGIFY_API_KEY` | Lodgify → Configuración → **API pública** (la API no acepta usuario y contraseña). |
 
-Prueba manual: pestaña **Actions → Sincronizar reservas Lodgify → Run workflow**.
+No hace falta contraseña de Gmail: el correo lo envía Claude con el conector de Gmail.
+(Opcional: con los secrets `GMAIL_USER` y `GMAIL_APP_PASSWORD` el script puede enviar el correo por SMTP
+con el Excel adjunto, quitando `--sin-correo` del workflow.)
+
+Ejecución manual: pestaña **Actions → Sincronizar reservas Lodgify → Run workflow**.
 
 ## Uso local
 
@@ -42,11 +41,16 @@ python -m pytest automatizacion/tests                                       # pr
 Ajustes en `automatizacion/config.py`: villas, canales, fecha de inicio (`SYNC_DESDE`) y
 `REGISTRAR_FUTURAS` (true = anotar en Ingresos apenas se reserva, en vez de al llegar).
 
-## Errores del libro corregidos automáticamente
+## Errores del libro corregidos
 
 - `Utilidad y Posibles Gastos` F13:F28: 4 celdas en `#REF!` y el resto tomaba el gasto de otra
-  categoría (orden distinto). Ahora busca por nombre de categoría.
+  categoría. Ahora busca por nombre de categoría.
 - `Arqueo y Resumen Caja` B55:D55: `#REF!` (columna eliminada). Ahora cuenta movimientos con "No" en Notas.
 - `Ingresos Diarios` H4 sumaba solo hasta la fila 200; resúmenes hasta la 1026 → ampliados a la 2026.
 - `Gastos e Ingresos` B5:B9 (octubre) eran montos pegados como valor: se conservan y se les suman
   las reservas que agrega la automatización.
+
+## Pendiente de revisar
+
+- Expedia: Lodgify no siempre desglosa el impuesto; el reporte avisa cuando el monto puede incluirlo.
+- "Muebleria" no aparece en la tabla de presupuesto de `Utilidad y Posibles Gastos` (total $321 menor).
