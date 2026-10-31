@@ -22,6 +22,9 @@ for r in res.values():
     if ll.isoformat() != dia:
         continue
     filas.append((ll, r["HouseName"].split("|")[0].strip(), r["GuestName"], r["Source"], int(r["Nights"]), r["total"]))
+sal = [(datetime.strptime(r["DateDeparture"], "%m/%d/%Y").date(), r["HouseName"].split("|")[0].strip(), r["GuestName"], r["Source"], int(r["Nights"]), r["total"])
+       for r in res.values() if r["Status"] == "Booked" and datetime.strptime(r["DateDeparture"], "%m/%d/%Y").date().isoformat() == dia]
+sal.sort(key=lambda t: (t[1], t[2]))
 filas.sort(key=lambda t: (t[0], t[1], t[2]))
 enc = ["Fecha de ingreso", "Villa / Condo", "Nombre", "Plataforma", "Noches", "Monto a pagar (USD)"]
 total = sum(f[5] for f in filas)
@@ -48,6 +51,14 @@ t.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1F4E78"
     ("FONTSIZE", (0, 0), (-1, -1), 8), ("GRID", (0, 0), (-1, -1), .3, colors.grey), ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
     ("ALIGN", (4, 0), (-1, -1), "RIGHT")]))
 el.append(t)
+if not filas:
+    el.insert(2, Paragraph("No hay entradas (check-in) registradas para este día.", st["Normal"]))
+el += [Spacer(1, 16), Paragraph(f"Salidas (check-out) del día: {len(sal)}", st["Heading3"])]
+t2 = Table([["Salida", "Villa / Condo", "Huésped", "Plataforma", "Noches", "Monto"]] + [[f[0].strftime("%d/%m/%Y"), f[1], f[2], f[3], f[4], f"${f[5]:,.2f}"] for f in sal], repeatRows=1)
+t2.setStyle(t._tblStyle if hasattr(t, "_tblStyle") else TableStyle([]))
+t2.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#7F7F7F")), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+    ("FONTSIZE", (0, 0), (-1, -1), 8), ("GRID", (0, 0), (-1, -1), .3, colors.grey), ("ALIGN", (4, 0), (-1, -1), "RIGHT")]))
+el.append(t2)
 SimpleDocTemplate(str(out / f"ingresos_diarios_{dia}.pdf"), pagesize=letter).build(el)
 for f in filas: print(f)
 print(total)
